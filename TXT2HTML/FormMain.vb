@@ -365,6 +365,7 @@ Public Class FormMain
                     Loop
                     If CurrLine.StartsWith(vbTab + vbTab + "|") Then
                         .Append("<p class=""quoteblockflush"">")
+                        TempCurrLine = TempCurrLine.Replace("|", "")
                     Else
                         .Append("<p class=""quoteblock"">")
                     End If
