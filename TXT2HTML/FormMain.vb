@@ -1,8 +1,12 @@
 ﻿' --------------------------------
-' --- FormMain.vb - 02/02/2016 ---
+' --- FormMain.vb - 04/27/2019 ---
 ' --------------------------------
 
 ' ----------------------------------------------------------------------------------------------------
+' 04/27/2019 - SBakker
+'            - Added quoteblock2, quoteblock3, quoteblock4.
+' 02/18/2018 - SBakker
+'            - Handle "<hr/>" just like "<hr />"
 ' 02/02/2016 - SBakker
 '            - Added "%" for outdenting paragraph.
 ' 10/11/2015 - SBakker
@@ -366,6 +370,12 @@ Public Class FormMain
                     If CurrLine.StartsWith(vbTab + vbTab + "|") Then
                         .Append("<p class=""quoteblockflush"">")
                         TempCurrLine = TempCurrLine.Replace("|", "")
+                    ElseIf CurrLine.StartsWith(vbTab + vbTab + vbTab + vbTab + vbTab) Then
+                        .Append("<p class=""quoteblock4"">")
+                    ElseIf CurrLine.StartsWith(vbTab + vbTab + vbTab + vbTab) Then
+                        .Append("<p class=""quoteblock3"">")
+                    ElseIf CurrLine.StartsWith(vbTab + vbTab + vbTab) Then
+                        .Append("<p class=""quoteblock2"">")
                     Else
                         .Append("<p class=""quoteblock"">")
                     End If
@@ -384,7 +394,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .AppendLine(FixTableLine(CurrLine))
-                ElseIf CurrLine.ToLower.Contains("<hr />") Then
+                ElseIf CurrLine.ToLower.Contains("<hr />") Or CurrLine.ToLower.Contains("<hr/>") Then
                     Do While BlankLineCount > 0
                         .AppendLine("<p>&nbsp;</p>")
                         BlankLineCount -= 1
