@@ -273,7 +273,7 @@ Public Class FormMain
                             TempHeading = "<div id=""start""><h1><u>" + TempHeading.Trim + "</u></h1></div>" ' --- Book title ---
                         Else
                             .AppendLine("<p>&nbsp;</p>")
-                            TempHeading = "<h2>" + TempHeading.Trim + "</h2>"
+                            TempHeading = "<p class=""title""><b>" + TempHeading.Trim + "</b></p>"
                         End If
                         TempHeading = FixTags(TempHeading)
                         .AppendLine(TempHeading)
