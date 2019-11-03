@@ -133,7 +133,7 @@ Public Class FormMain
     Private Shared ReadOnly ObjName As String = System.Reflection.MethodBase.GetCurrentMethod().ReflectedType.FullName
 
     Private FromPath As String = ""
-    Private ToPath As String = ""
+    ''Private ToPath As String = ""
     Private StopRequested As Boolean = False
 
     Private Sub FormMain_Load(sender As System.Object, e As System.EventArgs) Handles MyBase.Load
@@ -191,7 +191,7 @@ Public Class FormMain
         ToolStripStatusLabelMain.Text = FileCountMsg + FileCount.ToString + ChangedCountMsg + ChangedCount.ToString
         Application.DoEvents()
         Dim FromFiles() As String = Directory.GetFiles(TextBoxFromPath.Text, "*.txt")
-        ToPath = TextBoxToPath.Text
+        ''ToPath = TextBoxToPath.Text
         For Each FileName As String In FromFiles
             If StopRequested Then Exit For
             FileCount += 1
@@ -206,6 +206,7 @@ Public Class FormMain
             End Try
             ToolStripStatusLabelMain.Text = FileCountMsg + FileCount.ToString + ChangedCountMsg + ChangedCount.ToString
             Application.DoEvents()
+            Exit For 'TODO ### for testing ###
         Next
         ' --- Done ---
         ToolStripStatusLabelMain.Text += " - Done"
@@ -221,6 +222,8 @@ Public Class FormMain
     Private Function ConvertToHTM(ByVal FileName As String) As Boolean
         Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
         Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
+        Dim TargetFolder As String = TextBoxToPath.Text + "\" + BaseFileNameNoExt
+        Dim ImageDir As String = TargetFolder + "\Images"
         Dim TargetText As New StringBuilder
         Dim FirstLine As Boolean = True
         Dim StartsWithTab As Boolean = False
@@ -229,32 +232,21 @@ Public Class FormMain
         ''Dim NoIndentTag As Boolean = False
         Dim ImagesChanged As Boolean = False
         Dim BlankLineCount As Integer = 0
+        Dim SequenceNumber As Integer = 0
         ' ---------------------------------------
         TextBoxFileName.Text = BaseFileName
-        With TargetText
-            ' --- Build heading ---
-            .AppendLine("<html>")
-            .AppendLine("<head>")
-            '' --- May be needed later ---
-            ''.AppendLine("<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">")
-            ' --- Add in all metadata ---
-            FirstLine = True
-            For Each CurrLine As String In File.ReadAllLines(FileName, GetFileEncoding(FileName))
-                If CurrLine Is Nothing Then Continue For
-                If CurrLine = "&#0;" Then Continue For
-                If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
-                    .AppendLine(CurrLine)
-                End If
-                ''If Not NoIndentTag AndAlso
-                ''    (CurrLine.StartsWith("|") OrElse CurrLine.StartsWith(vbTab + "|")) AndAlso
-                ''    Not CurrLine.StartsWith(vbTab + "||") Then
-                ''    NoIndentTag = True
-                ''End If
-                FirstLine = False
+        ' --- Build new folders to hold ebook files
+        If Not Directory.Exists(TargetFolder) Then
+            Directory.CreateDirectory(TargetFolder)
+            Directory.CreateDirectory(TargetFolder + "\css")
+            Directory.CreateDirectory(TargetFolder + "\Images")
+            For Each cssFile As String In Directory.GetFiles(TextBoxToPath.Text + "\css")
+                Dim cssFilename As String = cssFile.Substring(cssFile.LastIndexOf("\"c) + 1)
+                File.Copy(cssFile, TargetFolder + "\css\" + cssFilename, True)
             Next
-            .AppendLine("<link href=""css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
-            .AppendLine("</head>")
-            .AppendLine("<body>")
+        End If
+        StartNewChapter(FileName, TargetText, FirstLine)
+        With TargetText
             ' --- Fill in the lines ---
             FirstLine = True
             BlankLineCount = 0
@@ -299,9 +291,9 @@ Public Class FormMain
                     CurrLine = CurrLine.Replace(">", """>").Replace("<image=", "<div style=""text-align:center""><img src=""") + "</img></div>"
                     .AppendLine(CurrLine)
                     Try
-                        If Not File.Exists(ToPath + "\" + NewImageName) OrElse
-                            File.GetLastWriteTimeUtc(FromPath + "\" + CurrImageName) < File.GetLastWriteTimeUtc(ToPath + "\" + NewImageName) Then
-                            File.Copy(FromPath + "\" + CurrImageName, ToPath + "\" + NewImageName, True)
+                        If Not File.Exists(TargetFolder + "\" + NewImageName) OrElse
+                            File.GetLastWriteTimeUtc(FromPath + "\" + CurrImageName) < File.GetLastWriteTimeUtc(TargetFolder + "\" + NewImageName) Then
+                            File.Copy(FromPath + "\" + CurrImageName, TargetFolder + "\" + NewImageName, True)
                             ImagesChanged = True
                         End If
                     Catch ex As Exception
@@ -313,7 +305,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""break""><b><big>")
-                    .Append(FixInlineImages(TempCurrLine.Substring(2).Trim))
+                    .Append(FixInlineImages(TempCurrLine.Substring(2).Trim, ImageDir))
                     .AppendLine("</big></b></p>")
                 ElseIf TempCurrLine.StartsWith("^") Then ' --- Centered and Bold ---
                     Do While BlankLineCount > 0
@@ -321,7 +313,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""break""><b>")
-                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim))
+                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, ImageDir))
                     .AppendLine("</b></p>")
                 ElseIf CurrLine.StartsWith("+") Then ' --- Sub-headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
@@ -339,7 +331,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""noindent"">")
-                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim))
+                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, ImageDir))
                     .AppendLine("</p>")
                 ElseIf TempCurrLine.StartsWith("]") Then ' right-justify
                     Do While BlankLineCount > 0
@@ -379,7 +371,7 @@ Public Class FormMain
                     Else
                         .Append("<p class=""quoteblock"">")
                     End If
-                    .Append(FixInlineImages(TempCurrLine).Replace("&nbsp;&nbsp;&nbsp;&nbsp;", ""))
+                    .Append(FixInlineImages(TempCurrLine, ImageDir).Replace("&nbsp;&nbsp;&nbsp;&nbsp;", ""))
                     .AppendLine("</p>")
                 ElseIf CurrLine.Replace(" ", "").Replace(vbTab, "") = "***" Then
                     BlankLineCount = 0 ' erase all previous blank lines
@@ -406,46 +398,82 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p>")
-                    .Append(FixInlineImages(TempCurrLine))
+                    .Append(FixInlineImages(TempCurrLine, ImageDir))
                     .AppendLine("</p>")
                 End If
             Next
-            ' --- Build ending ---
-            .AppendLine("</body>")
-            .AppendLine("</html>")
         End With
-        ' --- Prepare the result ---
-        Dim TargetFilename As String = ToPath + "\" + BaseFileNameNoExt + ".html"
-        If File.Exists(TargetFilename) Then
-            ' --- Check if file hasn't changed ---
-            If Not ImagesChanged Then
-                Dim OldFileText As String = File.ReadAllText(TargetFilename, GetFileEncoding(TargetFilename))
-                If OldFileText = TargetText.ToString Then
-                    Return False
-                End If
-            End If
-            ' --- Check if file is read-only ---
-            Dim CurrInfo As FileInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
-            Do While CurrInfo.IsReadOnly
-                Dim Answer As DialogResult = MessageBox.Show("""" + TargetFilename + """ is Read-Only",
-                                             "File is Read-Only", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error)
-                ' --- abort ---
-                If Answer = DialogResult.Abort Then
-                    Return False
-                End If
-                ' --- ignore ---
-                If Answer = DialogResult.Ignore Then
-                    Return False
-                End If
-                ' --- retry ---
-                CurrInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
-            Loop
-        End If
-        ' --- Write out result ---
-        File.WriteAllText(TargetFilename, TargetText.ToString, Encoding.UTF8)
+        FinishChapter(TargetText, TargetFolder, SequenceNumber)
         TextBoxResults.AppendText(BaseFileName + vbCrLf)
         Return True
     End Function
+
+    Private Sub StartNewChapter(ByVal FileName As String,
+                                ByVal TargetText As StringBuilder,
+                                ByRef FirstLine As Boolean)
+        With TargetText
+            .Clear()
+            ' --- Build heading ---
+            .AppendLine("<html>")
+            .AppendLine("<head>")
+            '' --- May be needed later ---
+            ''.AppendLine("<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">")
+            ' --- Add in all metadata ---
+            FirstLine = True
+            For Each CurrLine As String In File.ReadAllLines(FileName, GetFileEncoding(FileName))
+                If CurrLine Is Nothing Then Continue For
+                If CurrLine = "&#0;" Then Continue For
+                If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
+                    .AppendLine(CurrLine)
+                End If
+                ''If Not NoIndentTag AndAlso
+                ''    (CurrLine.StartsWith("|") OrElse CurrLine.StartsWith(vbTab + "|")) AndAlso
+                ''    Not CurrLine.StartsWith(vbTab + "||") Then
+                ''    NoIndentTag = True
+                ''End If
+                FirstLine = False
+            Next
+            .AppendLine("<link href=""css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
+            .AppendLine("</head>")
+            .AppendLine("<body>")
+        End With
+    End Sub
+
+    Private Sub FinishChapter(ByVal TargetText As StringBuilder,
+                              ByVal TargetFolder As String,
+                              ByRef SequenceNumber As Integer)
+        ' --- Build ending ---
+        TargetText.AppendLine("</body>")
+        TargetText.AppendLine("</html>")
+        ' --- Prepare the result ---
+        Dim TargetFilename As String = TargetFolder + "\" + SequenceNumber.ToString("0000") + ".html"
+        SequenceNumber += 1
+        If File.Exists(TargetFilename) Then
+            ' --- Check if file hasn't changed ---
+            Dim OldFileText As String = File.ReadAllText(TargetFilename, GetFileEncoding(TargetFilename))
+            If OldFileText = TargetText.ToString Then
+                Exit Sub
+            End If
+            '' ' --- Check if file is read-only ---
+            ''Dim CurrInfo As FileInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
+            ''Do While CurrInfo.IsReadOnly
+            ''    Dim Answer As DialogResult = MessageBox.Show("""" + TargetFilename + """ is Read-Only",
+            ''                                 "File is Read-Only", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error)
+            ''    ' --- abort ---
+            ''    If Answer = DialogResult.Abort Then
+            ''        Return False
+            ''    End If
+            ''    ' --- ignore ---
+            ''    If Answer = DialogResult.Ignore Then
+            ''        Return False
+            ''    End If
+            ''    ' --- retry ---
+            ''    CurrInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
+            ''Loop
+        End If
+        ' --- Write out result ---
+        File.WriteAllText(TargetFilename, TargetText.ToString)
+    End Sub
 
     Private Function FixLine(ByVal CurrLine As String) As String
         If CurrLine = "" Then Return "&nbsp;"
@@ -647,7 +675,7 @@ Public Class FormMain
         Return CurrLine
     End Function
 
-    Private Function FixInlineImages(ByVal CurrLine As String) As String
+    Private Function FixInlineImages(ByVal CurrLine As String, ByVal ImageDir As String) As String
         If CurrLine.Contains("&lt;image=") Then
             CurrLine = CurrLine.Replace("&lt;image=", "<img src=""")
             CurrLine = CurrLine.Replace("&gt;", """></img>")
@@ -659,8 +687,8 @@ Public Class FormMain
                     NewImageName = NewImageName.Replace("img src=""", "")
                     NewImageName = NewImageName.Substring(0, NewImageName.IndexOf(""""c))
                     Try
-                        If Not File.Exists(ToPath + "\" + NewImageName) Then
-                            File.Copy(FromPath + "\" + NewImageName, ToPath + "\" + NewImageName, True)
+                        If Not File.Exists(TextBoxToPath.Text + "\" + NewImageName) Then
+                            File.Copy(FromPath + "\" + NewImageName, ImageDir + "\" + NewImageName, True)
                         End If
                     Catch ex As Exception
                         Throw New SystemException("Can't copy file: " + NewImageName + vbCrLf + ex.Message)
@@ -672,9 +700,9 @@ Public Class FormMain
     End Function
 
     Private Sub AboutToolStripMenuItem_Click(sender As System.Object, e As System.EventArgs) Handles AboutToolStripMenuItem.Click
-        Dim TempAbout As New AboutMain
-        TempAbout.ShowDialog()
-        TempAbout = Nothing
+        Using TempAbout As New AboutMain
+            TempAbout.ShowDialog()
+        End Using
     End Sub
 
     Private Sub ButtonStop_Click(sender As Object, e As EventArgs) Handles ButtonStop.Click
