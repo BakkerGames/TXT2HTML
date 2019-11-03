@@ -135,6 +135,7 @@ Public Class FormMain
     Private FromPath As String = ""
     ''Private ToPath As String = ""
     Private StopRequested As Boolean = False
+    Private TOC As New List(Of String)
 
     Private Sub FormMain_Load(sender As System.Object, e As System.EventArgs) Handles MyBase.Load
 
@@ -235,6 +236,7 @@ Public Class FormMain
         Dim SequenceNumber As Integer = 0
         ' ---------------------------------------
         TextBoxFileName.Text = BaseFileName
+        TOC.Clear()
         ' --- Build new folders to hold ebook files
         If Not Directory.Exists(TargetFolder) Then
             Directory.CreateDirectory(TargetFolder)
@@ -245,7 +247,7 @@ Public Class FormMain
                 File.Copy(cssFile, TargetFolder + "\css\" + cssFilename, True)
             Next
         End If
-        StartNewChapter(FileName, TargetText, FirstLine)
+        StartNewChapter(FileName, TargetText, "Title Page")
         With TargetText
             ' --- Fill in the lines ---
             FirstLine = True
@@ -287,8 +289,10 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     Dim CurrImageName As String = CurrLine.Replace("<image=", "").Replace(">", "")
-                    Dim NewImageName As String = CurrLine.Replace("<image=", "").Replace(">", "")
-                    CurrLine = CurrLine.Replace(">", """>").Replace("<image=", "<div style=""text-align:center""><img src=""") + "</img></div>"
+                    Dim NewImageName As String = CurrLine.Replace("<image=", "").Replace(">", "").Replace(" ", "_")
+                    CurrLine = CurrLine.Replace(CurrImageName, NewImageName)
+                    CurrLine = CurrLine.Replace(">", """>")
+                    CurrLine = CurrLine.Replace("<image=", "<div style=""text-align:center""><img src=""") + "</img></div>"
                     .AppendLine(CurrLine)
                     Try
                         If Not File.Exists(TargetFolder + "\" + NewImageName) OrElse
@@ -317,8 +321,11 @@ Public Class FormMain
                     .AppendLine("</b></p>")
                 ElseIf CurrLine.StartsWith("+") Then ' --- Sub-headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
+                    TempCurrLine = TempCurrLine.Substring(1).Trim
+                    FinishChapter(TargetText, TargetFolder, SequenceNumber)
+                    StartNewChapter(FileName, TargetText, TempCurrLine)
                     .Append("<h3>")
-                    .Append(TempCurrLine.Substring(1).Trim)
+                    .Append(TempCurrLine)
                     .AppendLine("</h3>")
                 ElseIf TempCurrLine.StartsWith(":") AndAlso Not TempCurrLine.StartsWith("::") Then ' --- Hidden main heading, but still in Table of Contents (Usually followed by an image) ---
                     BlankLineCount = 0 ' erase all previous blank lines
@@ -351,6 +358,8 @@ Public Class FormMain
                     .AppendLine("</p>")
                 ElseIf Not StartsWithTab Then ' --- Headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
+                    FinishChapter(TargetText, TargetFolder, SequenceNumber)
+                    StartNewChapter(FileName, TargetText, TempCurrLine)
                     .Append("<h3>")
                     .Append(TempCurrLine)
                     .AppendLine("</h3>")
@@ -404,20 +413,43 @@ Public Class FormMain
             Next
         End With
         FinishChapter(TargetText, TargetFolder, SequenceNumber)
+        AddTableOfContents(FileName, TargetFolder)
         TextBoxResults.AppendText(BaseFileName + vbCrLf)
         Return True
     End Function
 
+    Private Sub AddTableOfContents(ByVal FileName As String,
+                                   ByVal TargetFolder As String)
+        Dim tocText As New StringBuilder
+        AddHeaderMetadata(FileName, tocText)
+        With tocText
+            .AppendLine("<h1>Table of Contents</h1>")
+            .AppendLine("<p style=""text-indent:0pt"">")
+            For seq As Integer = 0 To TOC.Count - 1
+                .AppendLine($"<a href=""part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
+            Next
+            .AppendLine("</p>")
+            .AppendLine("</body>")
+            .AppendLine("</html>")
+        End With
+        File.WriteAllText(TargetFolder + "\toc.html", tocText.ToString)
+    End Sub
+
     Private Sub StartNewChapter(ByVal FileName As String,
                                 ByVal TargetText As StringBuilder,
-                                ByRef FirstLine As Boolean)
+                                ByVal ChapterTitle As String)
+        TOC.Add(ChapterTitle)
+        AddHeaderMetadata(FileName, TargetText)
+    End Sub
+
+    Private Sub AddHeaderMetadata(ByVal FileName As String,
+                                  ByVal TargetText As StringBuilder)
+        Dim FirstLine As Boolean = True
         With TargetText
             .Clear()
             ' --- Build heading ---
             .AppendLine("<html>")
             .AppendLine("<head>")
-            '' --- May be needed later ---
-            ''.AppendLine("<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">")
             ' --- Add in all metadata ---
             FirstLine = True
             For Each CurrLine As String In File.ReadAllLines(FileName, GetFileEncoding(FileName))
@@ -426,11 +458,6 @@ Public Class FormMain
                 If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
                     .AppendLine(CurrLine)
                 End If
-                ''If Not NoIndentTag AndAlso
-                ''    (CurrLine.StartsWith("|") OrElse CurrLine.StartsWith(vbTab + "|")) AndAlso
-                ''    Not CurrLine.StartsWith(vbTab + "||") Then
-                ''    NoIndentTag = True
-                ''End If
                 FirstLine = False
             Next
             .AppendLine("<link href=""css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
@@ -446,7 +473,7 @@ Public Class FormMain
         TargetText.AppendLine("</body>")
         TargetText.AppendLine("</html>")
         ' --- Prepare the result ---
-        Dim TargetFilename As String = TargetFolder + "\" + SequenceNumber.ToString("0000") + ".html"
+        Dim TargetFilename As String = TargetFolder + "\part" + SequenceNumber.ToString("0000") + ".html"
         SequenceNumber += 1
         If File.Exists(TargetFilename) Then
             ' --- Check if file hasn't changed ---
@@ -454,22 +481,6 @@ Public Class FormMain
             If OldFileText = TargetText.ToString Then
                 Exit Sub
             End If
-            '' ' --- Check if file is read-only ---
-            ''Dim CurrInfo As FileInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
-            ''Do While CurrInfo.IsReadOnly
-            ''    Dim Answer As DialogResult = MessageBox.Show("""" + TargetFilename + """ is Read-Only",
-            ''                                 "File is Read-Only", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error)
-            ''    ' --- abort ---
-            ''    If Answer = DialogResult.Abort Then
-            ''        Return False
-            ''    End If
-            ''    ' --- ignore ---
-            ''    If Answer = DialogResult.Ignore Then
-            ''        Return False
-            ''    End If
-            ''    ' --- retry ---
-            ''    CurrInfo = My.Computer.FileSystem.GetFileInfo(TargetFilename)
-            ''Loop
         End If
         ' --- Write out result ---
         File.WriteAllText(TargetFilename, TargetText.ToString)
@@ -686,6 +697,9 @@ Public Class FormMain
                 If NewImageName.StartsWith("img src=""") Then
                     NewImageName = NewImageName.Replace("img src=""", "")
                     NewImageName = NewImageName.Substring(0, NewImageName.IndexOf(""""c))
+                    If NewImageName.Contains("—") Then NewImageName = NewImageName.Replace("—", "-") ' fix any bad file names
+                    If NewImageName.Contains("  ") Then NewImageName = NewImageName.Replace("  ", " ") ' fix any bad file names
+                    If NewImageName.Contains(" ") Then NewImageName = NewImageName.Replace(" ", "_") ' fix any bad file names
                     Try
                         If Not File.Exists(TextBoxToPath.Text + "\" + NewImageName) Then
                             File.Copy(FromPath + "\" + NewImageName, ImageDir + "\" + NewImageName, True)
