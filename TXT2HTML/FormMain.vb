@@ -136,6 +136,7 @@ Public Class FormMain
     ''Private ToPath As String = ""
     Private StopRequested As Boolean = False
     Private TOC As New List(Of String)
+    Private ImageDictionary As New Dictionary(Of String, String)
 
     Private Sub FormMain_Load(sender As System.Object, e As System.EventArgs) Handles MyBase.Load
 
@@ -237,6 +238,7 @@ Public Class FormMain
         ' ---------------------------------------
         TextBoxFileName.Text = BaseFileName
         TOC.Clear()
+        ImageDictionary.Clear()
         ' --- Build new folders to hold ebook files
         If Not Directory.Exists(TargetFolder) Then
             Directory.CreateDirectory(TargetFolder)
@@ -282,14 +284,12 @@ Public Class FormMain
                     BlankLineCount += 1 ' just count them for now
                 ElseIf CurrLine.StartsWith("<image=") Then
                     If CurrLine.Contains("""") Then CurrLine = CurrLine.Replace("""", "")
-                    If CurrLine.Contains("—") Then CurrLine = CurrLine.Replace("—", "-") ' fix any bad file names
-                    If CurrLine.Contains("  ") Then CurrLine = CurrLine.Replace("  ", " ") ' fix any bad file names
                     Do While BlankLineCount > 0
                         .AppendLine("<p>&nbsp;</p>")
                         BlankLineCount -= 1
                     Loop
                     Dim CurrImageName As String = CurrLine.Replace("<image=", "").Replace(">", "")
-                    Dim NewImageName As String = CurrLine.Replace("<image=", "").Replace(">", "").Replace(" ", "_")
+                    Dim NewImageName As String = GetNewImageName(CurrImageName)
                     CurrLine = CurrLine.Replace(CurrImageName, NewImageName)
                     CurrLine = CurrLine.Replace(">", """>")
                     CurrLine = CurrLine.Replace("<image=", "<div style=""text-align:center""><img src=""") + "</img></div>"
@@ -434,6 +434,15 @@ Public Class FormMain
         End With
         File.WriteAllText(TargetFolder + "\toc.html", tocText.ToString)
     End Sub
+
+    Private Function GetNewImageName(ByVal OldImageName As String) As String
+        If Not ImageDictionary.ContainsKey(OldImageName) Then
+            Dim fileExt As String = OldImageName.Substring(OldImageName.LastIndexOf("."c))
+            Dim filePath As String = OldImageName.Substring(0, OldImageName.LastIndexOf("\"c) + 1)
+            ImageDictionary.Add(OldImageName, filePath + ImageDictionary.Count.ToString("00000") + fileExt)
+        End If
+        Return ImageDictionary(OldImageName)
+    End Function
 
     Private Sub StartNewChapter(ByVal FileName As String,
                                 ByVal TargetText As StringBuilder,
@@ -693,19 +702,17 @@ Public Class FormMain
             CurrLine = CurrLine.Replace("&nbsp;", " ")
             CurrLine = CurrLine.Replace("""""", """")
             Dim Filenames() As String = CurrLine.Split("<"c)
-            For Each NewImageName As String In Filenames
-                If NewImageName.StartsWith("img src=""") Then
-                    NewImageName = NewImageName.Replace("img src=""", "")
-                    NewImageName = NewImageName.Substring(0, NewImageName.IndexOf(""""c))
-                    If NewImageName.Contains("—") Then NewImageName = NewImageName.Replace("—", "-") ' fix any bad file names
-                    If NewImageName.Contains("  ") Then NewImageName = NewImageName.Replace("  ", " ") ' fix any bad file names
-                    If NewImageName.Contains(" ") Then NewImageName = NewImageName.Replace(" ", "_") ' fix any bad file names
+            For Each CurrImageName As String In Filenames
+                If CurrImageName.StartsWith("img src=""") Then
+                    CurrImageName = CurrImageName.Replace("img src=""", "")
+                    CurrImageName = CurrImageName.Substring(0, CurrImageName.IndexOf(""""c))
+                    Dim NewImageName As String = GetNewImageName(CurrImageName)
                     Try
-                        If Not File.Exists(TextBoxToPath.Text + "\" + NewImageName) Then
-                            File.Copy(FromPath + "\" + NewImageName, ImageDir + "\" + NewImageName, True)
+                        If Not File.Exists(ImageDir + "\" + NewImageName) Then
+                            File.Copy(FromPath + "\" + CurrImageName, ImageDir + "\" + NewImageName, True)
                         End If
                     Catch ex As Exception
-                        Throw New SystemException("Can't copy file: " + NewImageName + vbCrLf + ex.Message)
+                        Throw New SystemException("Can't copy file: " + CurrImageName + vbCrLf + ex.Message)
                     End Try
                 End If
             Next
