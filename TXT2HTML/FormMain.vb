@@ -208,7 +208,6 @@ Public Class FormMain
             End Try
             ToolStripStatusLabelMain.Text = FileCountMsg + FileCount.ToString + ChangedCountMsg + ChangedCount.ToString
             Application.DoEvents()
-            Exit For 'TODO ### for testing ###
         Next
         ' --- Done ---
         ToolStripStatusLabelMain.Text += " - Done"
@@ -309,7 +308,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""break""><b><big>")
-                    .Append(FixInlineImages(TempCurrLine.Substring(2).Trim, ImageDir))
+                    .Append(FixInlineImages(TempCurrLine.Substring(2).Trim, TargetFolder))
                     .AppendLine("</big></b></p>")
                 ElseIf TempCurrLine.StartsWith("^") Then ' --- Centered and Bold ---
                     Do While BlankLineCount > 0
@@ -317,7 +316,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""break""><b>")
-                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, ImageDir))
+                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, TargetFolder))
                     .AppendLine("</b></p>")
                 ElseIf CurrLine.StartsWith("+") Then ' --- Sub-headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
@@ -338,7 +337,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p class=""noindent"">")
-                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, ImageDir))
+                    .Append(FixInlineImages(TempCurrLine.Substring(1).Trim, TargetFolder))
                     .AppendLine("</p>")
                 ElseIf TempCurrLine.StartsWith("]") Then ' right-justify
                     Do While BlankLineCount > 0
@@ -380,7 +379,7 @@ Public Class FormMain
                     Else
                         .Append("<p class=""quoteblock"">")
                     End If
-                    .Append(FixInlineImages(TempCurrLine, ImageDir).Replace("&nbsp;&nbsp;&nbsp;&nbsp;", ""))
+                    .Append(FixInlineImages(TempCurrLine, TargetFolder).Replace("&nbsp;&nbsp;&nbsp;&nbsp;", ""))
                     .AppendLine("</p>")
                 ElseIf CurrLine.Replace(" ", "").Replace(vbTab, "") = "***" Then
                     BlankLineCount = 0 ' erase all previous blank lines
@@ -407,7 +406,7 @@ Public Class FormMain
                         BlankLineCount -= 1
                     Loop
                     .Append("<p>")
-                    .Append(FixInlineImages(TempCurrLine, ImageDir))
+                    .Append(FixInlineImages(TempCurrLine, TargetFolder))
                     .AppendLine("</p>")
                 End If
             Next
@@ -420,19 +419,22 @@ Public Class FormMain
 
     Private Sub AddTableOfContents(ByVal FileName As String,
                                    ByVal TargetFolder As String)
+        Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
+        Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
+        Dim ParentFolder As String = TargetFolder.Substring(0, TargetFolder.LastIndexOf("\"c))
         Dim tocText As New StringBuilder
         AddHeaderMetadata(FileName, tocText)
         With tocText
             .AppendLine("<h1>Table of Contents</h1>")
             .AppendLine("<p style=""text-indent:0pt"">")
             For seq As Integer = 0 To TOC.Count - 1
-                .AppendLine($"<a href=""part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
+                .AppendLine($"<a href=""{BaseFileNameNoExt}\part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
             Next
             .AppendLine("</p>")
             .AppendLine("</body>")
             .AppendLine("</html>")
         End With
-        File.WriteAllText(TargetFolder + "\toc.html", tocText.ToString)
+        File.WriteAllText(ParentFolder + "\" + BaseFileNameNoExt + ".html", tocText.ToString)
     End Sub
 
     Private Function GetNewImageName(ByVal OldImageName As String) As String
@@ -695,7 +697,7 @@ Public Class FormMain
         Return CurrLine
     End Function
 
-    Private Function FixInlineImages(ByVal CurrLine As String, ByVal ImageDir As String) As String
+    Private Function FixInlineImages(ByVal CurrLine As String, ByVal TargetFolder As String) As String
         If CurrLine.Contains("&lt;image=") Then
             CurrLine = CurrLine.Replace("&lt;image=", "<img src=""")
             CurrLine = CurrLine.Replace("&gt;", """></img>")
@@ -708,8 +710,8 @@ Public Class FormMain
                     CurrImageName = CurrImageName.Substring(0, CurrImageName.IndexOf(""""c))
                     Dim NewImageName As String = GetNewImageName(CurrImageName)
                     Try
-                        If Not File.Exists(ImageDir + "\" + NewImageName) Then
-                            File.Copy(FromPath + "\" + CurrImageName, ImageDir + "\" + NewImageName, True)
+                        If Not File.Exists(TargetFolder + "\" + NewImageName) Then
+                            File.Copy(FromPath + "\" + CurrImageName, TargetFolder + "\" + NewImageName, True)
                         End If
                     Catch ex As Exception
                         Throw New SystemException("Can't copy file: " + CurrImageName + vbCrLf + ex.Message)
