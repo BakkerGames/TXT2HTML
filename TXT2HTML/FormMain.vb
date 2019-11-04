@@ -193,7 +193,6 @@ Public Class FormMain
         ToolStripStatusLabelMain.Text = FileCountMsg + FileCount.ToString + ChangedCountMsg + ChangedCount.ToString
         Application.DoEvents()
         Dim FromFiles() As String = Directory.GetFiles(TextBoxFromPath.Text, "*.txt")
-        ''ToPath = TextBoxToPath.Text
         For Each FileName As String In FromFiles
             If StopRequested Then Exit For
             FileCount += 1
@@ -223,14 +222,13 @@ Public Class FormMain
     Private Function ConvertToHTM(ByVal FileName As String) As Boolean
         Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
         Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
-        Dim TargetFolder As String = TextBoxToPath.Text + "\" + BaseFileNameNoExt
-        Dim ImageDir As String = TargetFolder + "\Images"
+        Dim TargetFolder As String = TextBoxToPath.Text + "\" + SquishFilename(BaseFileNameNoExt)
+        Dim ImageDir As String = TargetFolder + "\images"
         Dim TargetText As New StringBuilder
         Dim FirstLine As Boolean = True
         Dim StartsWithTab As Boolean = False
         Dim StartsWithTwoTabs As Boolean = False
         Dim TempCurrLine As String
-        ''Dim NoIndentTag As Boolean = False
         Dim ImagesChanged As Boolean = False
         Dim BlankLineCount As Integer = 0
         Dim SequenceNumber As Integer = 0
@@ -242,8 +240,8 @@ Public Class FormMain
         If Not Directory.Exists(TargetFolder) Then
             Directory.CreateDirectory(TargetFolder)
             Directory.CreateDirectory(TargetFolder + "\css")
-            Directory.CreateDirectory(TargetFolder + "\Images")
-            For Each cssFile As String In Directory.GetFiles(TextBoxToPath.Text + "\css")
+            Directory.CreateDirectory(TargetFolder + "\images")
+            For Each cssFile As String In Directory.GetFiles(TextBoxToPath.Text + "\_css")
                 Dim cssFilename As String = cssFile.Substring(cssFile.LastIndexOf("\"c) + 1)
                 File.Copy(cssFile, TargetFolder + "\css\" + cssFilename, True)
             Next
@@ -383,10 +381,6 @@ Public Class FormMain
                     .AppendLine("</p>")
                 ElseIf CurrLine.Replace(" ", "").Replace(vbTab, "") = "***" Then
                     BlankLineCount = 0 ' erase all previous blank lines
-                    ''.AppendLine("<hr class=""scenebreak"" />")
-                    ''.AppendLine("<hr style=""width:20%;"" />")
-                    ''.AppendLine("<p class=""scenebreak""><br />* * *<br /></p>")
-                    ''.AppendLine("<p class=""scenebreak"">* * *</p>")
                     .AppendLine("<p>&nbsp;</p><p class=""scenebreak"">* * *</p><p>&nbsp;</p>")
                 ElseIf CurrLine.ToLower.StartsWith(vbTab + "<t") OrElse CurrLine.ToLower.StartsWith(vbTab + "</t") Then ' tables
                     Do While BlankLineCount > 0
@@ -421,6 +415,7 @@ Public Class FormMain
                                    ByVal TargetFolder As String)
         Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
         Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
+        Dim SquishedBaseFilename As String = SquishFilename(BaseFileNameNoExt)
         Dim ParentFolder As String = TargetFolder.Substring(0, TargetFolder.LastIndexOf("\"c))
         Dim tocText As New StringBuilder
         AddHeaderMetadata(FileName, tocText)
@@ -428,14 +423,34 @@ Public Class FormMain
             .AppendLine("<h1>Table of Contents</h1>")
             .AppendLine("<p style=""text-indent:0pt"">")
             For seq As Integer = 0 To TOC.Count - 1
-                .AppendLine($"<a href=""{BaseFileNameNoExt}\part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
+                .AppendLine($"<a href=""{SquishedBaseFilename}\part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
             Next
             .AppendLine("</p>")
             .AppendLine("</body>")
             .AppendLine("</html>")
         End With
-        File.WriteAllText(ParentFolder + "\" + BaseFileNameNoExt + ".html", tocText.ToString)
+        File.WriteAllText(ParentFolder + "\" + SquishedBaseFilename + ".html", tocText.ToString)
     End Sub
+
+    Private Function SquishFilename(ByVal filename As String) As String
+        Dim result As New StringBuilder
+        Dim tempFilename As String = filename.Replace(" - ", "_").Replace(", ", "_").Replace(" ", "_")
+        For i As Integer = 0 To tempFilename.Length - 1
+            Dim c As Char = tempFilename(i)
+            If c >= "A" AndAlso c <= "Z" Then
+                result.Append(c)
+            ElseIf c >= "a" AndAlso c <= "z" Then
+                result.Append(c)
+            ElseIf c >= "0" AndAlso c <= "9" Then
+                result.Append(c)
+            ElseIf c = "_" Then
+                result.Append(c)
+            Else
+                result.Append("_")
+            End If
+        Next
+        Return result.ToString
+    End Function
 
     Private Function GetNewImageName(ByVal OldImageName As String) As String
         If Not ImageDictionary.ContainsKey(OldImageName) Then
@@ -657,13 +672,6 @@ Public Class FormMain
         Do While CurrLine.Contains("&lt;/u&gt;")
             CurrLine = CurrLine.Replace("&lt;/u&gt;", "</u>")
         Loop
-        ' '' --- Fix mbp:pagebreak ---
-        ''Do While CurrLine.Contains("&lt;mbp:pagebreak/&gt;")
-        ''    CurrLine = CurrLine.Replace("&lt;mbp:pagebreak/&gt;", "<mbp:pagebreak />")
-        ''Loop
-        ''Do While CurrLine.Contains("&lt;mbp:pagebreak /&gt;")
-        ''    CurrLine = CurrLine.Replace("&lt;mbp:pagebreak /&gt;", "<mbp:pagebreak />")
-        ''Loop
         ' --- Fix special HTML characters ---
         Do While CurrLine.Contains("&#0;") ' null
             CurrLine = CurrLine.Replace("&#0;", "")
@@ -709,6 +717,7 @@ Public Class FormMain
                     CurrImageName = CurrImageName.Replace("img src=""", "")
                     CurrImageName = CurrImageName.Substring(0, CurrImageName.IndexOf(""""c))
                     Dim NewImageName As String = GetNewImageName(CurrImageName)
+                    CurrLine = CurrLine.Replace(CurrImageName, NewImageName)
                     Try
                         If Not File.Exists(TargetFolder + "\" + NewImageName) Then
                             File.Copy(FromPath + "\" + CurrImageName, TargetFolder + "\" + NewImageName, True)
