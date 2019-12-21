@@ -133,7 +133,6 @@ Public Class FormMain
     Private Shared ReadOnly ObjName As String = System.Reflection.MethodBase.GetCurrentMethod().ReflectedType.FullName
 
     Private FromPath As String = ""
-    ''Private ToPath As String = ""
     Private StopRequested As Boolean = False
     Private TOC As New List(Of String)
     Private ImageDictionary As New Dictionary(Of String, String)
@@ -223,15 +222,16 @@ Public Class FormMain
         Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
         Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
         Dim TargetFolder As String = TextBoxToPath.Text + "\" + SquishFilename(BaseFileNameNoExt)
-        Dim ImageDir As String = TargetFolder + "\images"
+        ''Dim ImageDir As String = TargetFolder + "\images"
         Dim TargetText As New StringBuilder
         Dim FirstLine As Boolean = True
         Dim StartsWithTab As Boolean = False
         Dim StartsWithTwoTabs As Boolean = False
         Dim TempCurrLine As String
-        Dim ImagesChanged As Boolean = False
+        ''Dim ImagesChanged As Boolean = False
         Dim BlankLineCount As Integer = 0
         Dim SequenceNumber As Integer = 0
+        Dim Changed As Boolean = False
         ' ---------------------------------------
         TextBoxFileName.Text = BaseFileName
         TOC.Clear()
@@ -295,7 +295,7 @@ Public Class FormMain
                         If Not File.Exists(TargetFolder + "\" + NewImageName) OrElse
                             File.GetLastWriteTimeUtc(FromPath + "\" + CurrImageName) < File.GetLastWriteTimeUtc(TargetFolder + "\" + NewImageName) Then
                             File.Copy(FromPath + "\" + CurrImageName, TargetFolder + "\" + NewImageName, True)
-                            ImagesChanged = True
+                            Changed = True
                         End If
                     Catch ex As Exception
                         Throw New SystemException("Can't copy file: " + CurrImageName + vbCrLf + ex.Message)
@@ -319,7 +319,7 @@ Public Class FormMain
                 ElseIf CurrLine.StartsWith("+") Then ' --- Sub-headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
                     TempCurrLine = TempCurrLine.Substring(1).Trim
-                    FinishChapter(TargetText, TargetFolder, SequenceNumber)
+                    Changed = Changed Or FinishChapter(TargetText, TargetFolder, SequenceNumber)
                     StartNewChapter(FileName, TargetText, TempCurrLine)
                     .Append("<h3>")
                     .Append(TempCurrLine)
@@ -355,7 +355,7 @@ Public Class FormMain
                     .AppendLine("</p>")
                 ElseIf Not StartsWithTab Then ' --- Headings in Table of Contents ---
                     BlankLineCount = 0 ' erase all previous blank lines
-                    FinishChapter(TargetText, TargetFolder, SequenceNumber)
+                    Changed = Changed Or FinishChapter(TargetText, TargetFolder, SequenceNumber)
                     StartNewChapter(FileName, TargetText, TempCurrLine)
                     .Append("<h3>")
                     .Append(TempCurrLine)
@@ -405,14 +405,16 @@ Public Class FormMain
                 End If
             Next
         End With
-        FinishChapter(TargetText, TargetFolder, SequenceNumber)
-        AddTableOfContents(FileName, TargetFolder)
-        TextBoxResults.AppendText(BaseFileName + vbCrLf)
-        Return True
+        Changed = Changed Or FinishChapter(TargetText, TargetFolder, SequenceNumber)
+        Changed = Changed Or AddTableOfContents(FileName, TargetFolder)
+        If Changed Then
+            TextBoxResults.AppendText(BaseFileName + vbCrLf)
+        End If
+        Return Changed
     End Function
 
-    Private Sub AddTableOfContents(ByVal FileName As String,
-                                   ByVal TargetFolder As String)
+    Private Function AddTableOfContents(ByVal FileName As String,
+                                        ByVal TargetFolder As String) As Boolean
         Dim BaseFileName As String = FileName.Substring(FileName.LastIndexOf("\"c) + 1)
         Dim BaseFileNameNoExt As String = BaseFileName.Substring(0, BaseFileName.LastIndexOf("."c))
         Dim SquishedBaseFilename As String = SquishFilename(BaseFileNameNoExt)
@@ -429,26 +431,45 @@ Public Class FormMain
             .AppendLine("</body>")
             .AppendLine("</html>")
         End With
-        File.WriteAllText(ParentFolder + "\" + SquishedBaseFilename + ".html", tocText.ToString)
-    End Sub
+        Dim Changed As Boolean = True
+        Dim OutFilename As String = ParentFolder + "\" + SquishedBaseFilename + ".html"
+        If File.Exists(OutFilename) Then
+            Dim s As String = File.ReadAllText(OutFilename)
+            If s = tocText.ToString Then
+                Changed = False
+            End If
+        End If
+        If Changed Then
+            File.WriteAllText(OutFilename, tocText.ToString)
+        End If
+        Return Changed
+    End Function
 
     Private Function SquishFilename(ByVal filename As String) As String
         Dim result As New StringBuilder
         Dim tempFilename As String = filename.Replace(" - ", "_").Replace(", ", "_").Replace(" ", "_")
+        Dim lastWasUnderline As Boolean = False
         For i As Integer = 0 To tempFilename.Length - 1
             Dim c As Char = tempFilename(i)
             If c >= "A" AndAlso c <= "Z" Then
                 result.Append(c)
+                lastWasUnderline = False
             ElseIf c >= "a" AndAlso c <= "z" Then
                 result.Append(c)
+                lastWasUnderline = False
             ElseIf c >= "0" AndAlso c <= "9" Then
                 result.Append(c)
-            ElseIf c = "_" Then
-                result.Append(c)
-            Else
+                lastWasUnderline = False
+            ElseIf c = "'" Then
+                ' --- ignore appostrophes
+            ElseIf Not lastWasUnderline Then
                 result.Append("_")
+                lastWasUnderline = True
             End If
         Next
+        If lastWasUnderline Then
+            result.Length -= 1 ' remove trailing underline
+        End If
         Return result.ToString
     End Function
 
@@ -492,9 +513,9 @@ Public Class FormMain
         End With
     End Sub
 
-    Private Sub FinishChapter(ByVal TargetText As StringBuilder,
-                              ByVal TargetFolder As String,
-                              ByRef SequenceNumber As Integer)
+    Private Function FinishChapter(ByVal TargetText As StringBuilder,
+                                   ByVal TargetFolder As String,
+                                   ByRef SequenceNumber As Integer) As Boolean
         ' --- Build ending ---
         TargetText.AppendLine("</body>")
         TargetText.AppendLine("</html>")
@@ -505,12 +526,13 @@ Public Class FormMain
             ' --- Check if file hasn't changed ---
             Dim OldFileText As String = File.ReadAllText(TargetFilename, GetFileEncoding(TargetFilename))
             If OldFileText = TargetText.ToString Then
-                Exit Sub
+                Return False
             End If
         End If
         ' --- Write out result ---
         File.WriteAllText(TargetFilename, TargetText.ToString)
-    End Sub
+        Return True
+    End Function
 
     Private Function FixLine(ByVal CurrLine As String) As String
         If CurrLine = "" Then Return "&nbsp;"
