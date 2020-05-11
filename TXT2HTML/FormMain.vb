@@ -124,9 +124,8 @@
 '              heading.
 ' ----------------------------------------------------------------------------------------------------
 
-Imports Arena_Utilities.FileUtils
-Imports System.IO
 Imports System.Text
+Imports System.IO
 
 Public Class FormMain
 
@@ -140,17 +139,6 @@ Public Class FormMain
     Private Sub FormMain_Load(sender As System.Object, e As System.EventArgs) Handles MyBase.Load
 
         Static FuncName As String = ObjName + "." + System.Reflection.MethodBase.GetCurrentMethod().Name
-
-        Try
-            If Arena_Bootstrap.BootstrapClass.CopyProgramsToLaunchPath Then
-                Me.Close()
-                Exit Sub
-            End If
-        Catch ex As Exception
-            MessageBox.Show(FuncName + vbCrLf + ex.Message, My.Application.Info.AssemblyName, MessageBoxButtons.OK)
-            Me.Close()
-            Exit Sub
-        End Try
 
         ' --- First call Upgrade to load setting from last version ---
         If My.Settings.CallUpgrade Then
@@ -239,11 +227,11 @@ Public Class FormMain
         ' --- Build new folders to hold ebook files
         If Not Directory.Exists(TargetFolder) Then
             Directory.CreateDirectory(TargetFolder)
-            Directory.CreateDirectory(TargetFolder + "\css")
+            Directory.CreateDirectory(TargetFolder + "\_css")
             Directory.CreateDirectory(TargetFolder + "\images")
             For Each cssFile As String In Directory.GetFiles(TextBoxToPath.Text + "\_css")
                 Dim cssFilename As String = cssFile.Substring(cssFile.LastIndexOf("\"c) + 1)
-                File.Copy(cssFile, TargetFolder + "\css\" + cssFilename, True)
+                File.Copy(cssFile, TargetFolder + "\_css\" + cssFilename, True)
             Next
         End If
         StartNewChapter(FileName, TargetText, "Title Page")
@@ -251,7 +239,7 @@ Public Class FormMain
             ' --- Fill in the lines ---
             FirstLine = True
             BlankLineCount = 0
-            For Each CurrLine As String In File.ReadAllLines(FileName, GetFileEncoding(FileName))
+            For Each CurrLine As String In File.ReadAllLines(FileName)
                 If CurrLine Is Nothing Then Continue For
                 If CurrLine = "&#0;" Then
                     CurrLine = ""
@@ -425,7 +413,7 @@ Public Class FormMain
             .AppendLine("<h1>Table of Contents</h1>")
             .AppendLine("<p style=""text-indent:0pt"">")
             For seq As Integer = 0 To TOC.Count - 1
-                .AppendLine($"<a href=""{SquishedBaseFilename}\part{seq.ToString("0000")}.html"">{TOC(seq)}</a><br/>")
+                .AppendLine($"<a href=""{SquishedBaseFilename}\part{seq:0000}.html"">{TOC(seq)}</a><br/>")
             Next
             .AppendLine("</p>")
             .AppendLine("</body>")
@@ -499,7 +487,7 @@ Public Class FormMain
             .AppendLine("<head>")
             ' --- Add in all metadata ---
             FirstLine = True
-            For Each CurrLine As String In File.ReadAllLines(FileName, GetFileEncoding(FileName))
+            For Each CurrLine As String In File.ReadAllLines(FileName)
                 If CurrLine Is Nothing Then Continue For
                 If CurrLine = "&#0;" Then Continue For
                 If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
@@ -507,7 +495,7 @@ Public Class FormMain
                 End If
                 FirstLine = False
             Next
-            .AppendLine("<link href=""css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
+            .AppendLine("<link href=""_css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
             .AppendLine("</head>")
             .AppendLine("<body>")
         End With
@@ -524,7 +512,7 @@ Public Class FormMain
         SequenceNumber += 1
         If File.Exists(TargetFilename) Then
             ' --- Check if file hasn't changed ---
-            Dim OldFileText As String = File.ReadAllText(TargetFilename, GetFileEncoding(TargetFilename))
+            Dim OldFileText As String = File.ReadAllText(TargetFilename)
             If OldFileText = TargetText.ToString Then
                 Return False
             End If

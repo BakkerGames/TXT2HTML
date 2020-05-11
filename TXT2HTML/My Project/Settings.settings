@@ -2,13 +2,13 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="My" GeneratedClassName="MySettings" UseMySettingsClassName="true">
   <Profiles />
   <Settings>
-    <Setting Name="CallUpgrade" Provider="Arena_AppSettings.PortableSettingsProvider" Type="System.Boolean" Scope="User">
+    <Setting Name="CallUpgrade" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
-    <Setting Name="DefaultFromPath" Provider="Arena_AppSettings.PortableSettingsProvider" Type="System.String" Scope="User">
+    <Setting Name="DefaultFromPath" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="DefaultToPath" Provider="Arena_AppSettings.PortableSettingsProvider" Type="System.String" Scope="User">
+    <Setting Name="DefaultToPath" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
   </Settings>
