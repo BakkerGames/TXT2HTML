@@ -12,7 +12,7 @@ Imports System.Runtime.InteropServices
 <Assembly: AssemblyDescription("")> 
 <Assembly: AssemblyCompany("BakkerGames, Inc.")> 
 <Assembly: AssemblyProduct("TXT2HTML")>
-<Assembly: AssemblyCopyright("Copyright © BakkerGames, Inc. 2019")>
+<Assembly: AssemblyCopyright("Copyright © BakkerGames, Inc. 2020")>
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)>
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("2019.4.27.2057")>
-<Assembly: AssemblyFileVersion("2019.4.27.2057")>
+<Assembly: AssemblyVersion("2020.5.15.2201")>
+<Assembly: AssemblyFileVersion("2020.5.15.2201")>

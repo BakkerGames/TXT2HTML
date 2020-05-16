@@ -314,8 +314,11 @@ Public Class FormMain
                     .AppendLine("</h3>")
                 ElseIf TempCurrLine.StartsWith(":") AndAlso Not TempCurrLine.StartsWith("::") Then ' --- Hidden main heading, but still in Table of Contents (Usually followed by an image) ---
                     BlankLineCount = 0 ' erase all previous blank lines
+                    TempCurrLine = TempCurrLine.Substring(1).Trim
+                    Changed = Changed Or FinishChapter(TargetText, TargetFolder, SequenceNumber)
+                    StartNewChapter(FileName, TargetText, TempCurrLine)
                     .Append("<h6>")
-                    .Append(TempCurrLine.Substring(1).Trim)
+                    .Append(TempCurrLine)
                     .AppendLine("</h6>")
                 ElseIf TempCurrLine.StartsWith("|") AndAlso Not TempCurrLine.StartsWith("||") Then ' no indent
                     Do While BlankLineCount > 0
