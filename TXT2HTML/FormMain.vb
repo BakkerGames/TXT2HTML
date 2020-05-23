@@ -244,7 +244,8 @@ Public Class FormMain
                 If CurrLine = "&#0;" Then
                     CurrLine = ""
                 End If
-                If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
+                If CurrLine.StartsWith("<title>") OrElse
+                   CurrLine.ToLower.StartsWith("<meta ") Then
                     Continue For
                 End If
                 StartsWithTab = CurrLine.StartsWith(vbTab)
@@ -482,21 +483,17 @@ Public Class FormMain
 
     Private Sub AddHeaderMetadata(ByVal FileName As String,
                                   ByVal TargetText As StringBuilder)
-        Dim FirstLine As Boolean = True
         With TargetText
             .Clear()
             ' --- Build heading ---
             .AppendLine("<html>")
             .AppendLine("<head>")
             ' --- Add in all metadata ---
-            FirstLine = True
             For Each CurrLine As String In File.ReadAllLines(FileName)
-                If CurrLine Is Nothing Then Continue For
-                If CurrLine = "&#0;" Then Continue For
-                If Not FirstLine AndAlso CurrLine.StartsWith("<") AndAlso Not CurrLine.ToLower.StartsWith("<image=") Then
+                If CurrLine.StartsWith("<title>") OrElse
+                   CurrLine.StartsWith("<meta ") Then
                     .AppendLine(CurrLine)
                 End If
-                FirstLine = False
             Next
             .AppendLine("<link href=""_css\ebookstyle.css"" rel=""stylesheet"" type=""text/css"">")
             .AppendLine("</head>")
