@@ -531,6 +531,7 @@ Public Class FormMain
         If CurrLine.Contains(Chr(160)) Then CurrLine = CurrLine.Replace(Chr(160), "") ' non-breakable space
         If CurrLine.Contains(Chr(173)) Then CurrLine = CurrLine.Replace(Chr(173), "-"c) ' soft hyphen
         If CurrLine.Contains("\""") Then CurrLine = CurrLine.Replace("\""", """") ' an escaped quote, so it's ignored by quote checking
+        If CurrLine.Contains("\'") Then CurrLine = CurrLine.Replace("\'", "'") ' an escaped single quote, so it's ignored by quote checking
         If CurrLine.Contains(""" '") Then CurrLine = CurrLine.Replace(""" '", """&nbsp;'") ' keeps them from drifting apart
         If CurrLine.Contains("' """) Then CurrLine = CurrLine.Replace("' """, "'&nbsp;""") ' keeps them from drifting apart
         If CurrLine.Contains("<") AndAlso Not CurrLine.Contains("</") Then CurrLine = CurrLine.Replace("<", "&lt;")
