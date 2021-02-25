@@ -712,6 +712,22 @@ Public Class FormMain
         If CurrLine.Contains("</u></u>") Then
             CurrLine = CurrLine.Replace("</u></u>", "</u>")
         End If
+        While CurrLine.Contains("<footnote")
+            Dim pos1 As Integer = CurrLine.IndexOf("<footnote")
+            Dim pos2 As Integer = CurrLine.IndexOf(">", pos1)
+            Dim fn As String = CurrLine.Substring(pos1 + 9, pos2 - pos1 - 9).Trim
+            CurrLine = CurrLine.Substring(0, pos1) +
+                $"<a id=""fr{fn}"" href=""#fn{fn}"">[{fn}]</a>" +
+                CurrLine.Substring(pos2 + 1)
+        End While
+        While CurrLine.Contains("<foottext")
+            Dim pos1 As Integer = CurrLine.IndexOf("<foottext")
+            Dim pos2 As Integer = CurrLine.IndexOf(">", pos1)
+            Dim fn As String = CurrLine.Substring(pos1 + 9, pos2 - pos1 - 9).Trim
+            CurrLine = CurrLine.Substring(0, pos1) +
+                $"<a id=""fn{fn}"" href=""#fr{fn}"">[{fn}]</a>" +
+                CurrLine.Substring(pos2 + 1)
+        End While
         ' --- Done ---
         Return CurrLine
     End Function
