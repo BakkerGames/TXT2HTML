@@ -1,8 +1,10 @@
 ﻿' --------------------------------
-' --- FormMain.vb - 04/27/2019 ---
+' --- FormMain.vb - 02/25/2021 ---
 ' --------------------------------
 
 ' ----------------------------------------------------------------------------------------------------
+' 02/25/2021 - SBakker
+'            - Added footnote/foottext handling to allow standardization and quicker editing.
 ' 04/27/2019 - SBakker
 '            - Added quoteblock2, quoteblock3, quoteblock4.
 ' 02/18/2018 - SBakker
@@ -693,8 +695,8 @@ Public Class FormMain
         Do While CurrLine.Contains("&#45;") ' hyphen
             CurrLine = CurrLine.Replace("&#45;", "-")
         Loop
-
         CurrLine = FixTags(CurrLine)
+        CurrLine = FixFootnotes(CurrLine)
         ' --- Done ---
         Return CurrLine
     End Function
@@ -703,8 +705,14 @@ Public Class FormMain
         If CurrLine.Contains("<overline>") Then
             CurrLine = CurrLine.Replace("<overline>", "<span style=""text-decoration: overline;"">")
         End If
+        If CurrLine.Contains("&lt;overline&gt;") Then
+            CurrLine = CurrLine.Replace("&lt;overline&gt;", "<span style=""text-decoration: overline;"">")
+        End If
         If CurrLine.Contains("</overline>") Then
             CurrLine = CurrLine.Replace("</overline>", "</span>")
+        End If
+        If CurrLine.Contains("&lt;/overline&gt;") Then
+            CurrLine = CurrLine.Replace("&lt;/overline&gt;", "</span>")
         End If
         If CurrLine.Contains("<u><u>") Then
             CurrLine = CurrLine.Replace("<u><u>", "<u>")
@@ -712,18 +720,51 @@ Public Class FormMain
         If CurrLine.Contains("</u></u>") Then
             CurrLine = CurrLine.Replace("</u></u>", "</u>")
         End If
+        ' --- Done ---
+        Return CurrLine
+    End Function
+
+    Private Function FixFootnotes(ByVal CurrLine As String) As String
+        While CurrLine.Contains("&lt;footnote")
+            Dim pos1 As Integer = CurrLine.IndexOf("&lt;footnote")
+            Dim pos2 As Integer = CurrLine.IndexOf("&gt;", pos1)
+            Dim fn As String = CurrLine.Substring(pos1 + 12, pos2 - pos1 - 12).Trim
+            If fn.EndsWith("/") Then
+                fn = fn.Substring(0, fn.Length - 1).Trim
+            End If
+            CurrLine = CurrLine.Substring(0, pos1) +
+                $"<a id=""fr{fn}"" href=""#fn{fn}"">[{fn}]</a>" +
+                CurrLine.Substring(pos2 + 4)
+        End While
         While CurrLine.Contains("<footnote")
             Dim pos1 As Integer = CurrLine.IndexOf("<footnote")
             Dim pos2 As Integer = CurrLine.IndexOf(">", pos1)
             Dim fn As String = CurrLine.Substring(pos1 + 9, pos2 - pos1 - 9).Trim
+            If fn.EndsWith("/") Then
+                fn = fn.Substring(0, fn.Length - 1).Trim
+            End If
             CurrLine = CurrLine.Substring(0, pos1) +
                 $"<a id=""fr{fn}"" href=""#fn{fn}"">[{fn}]</a>" +
                 CurrLine.Substring(pos2 + 1)
+        End While
+        While CurrLine.Contains("&lt;foottext")
+            Dim pos1 As Integer = CurrLine.IndexOf("&lt;foottext")
+            Dim pos2 As Integer = CurrLine.IndexOf("&gt;", pos1)
+            Dim fn As String = CurrLine.Substring(pos1 + 12, pos2 - pos1 - 12).Trim
+            If fn.EndsWith("/") Then
+                fn = fn.Substring(0, fn.Length - 1).Trim
+            End If
+            CurrLine = CurrLine.Substring(0, pos1) +
+                $"<a id=""fn{fn}"" href=""#fr{fn}"">[{fn}]</a>" +
+                CurrLine.Substring(pos2 + 4)
         End While
         While CurrLine.Contains("<foottext")
             Dim pos1 As Integer = CurrLine.IndexOf("<foottext")
             Dim pos2 As Integer = CurrLine.IndexOf(">", pos1)
             Dim fn As String = CurrLine.Substring(pos1 + 9, pos2 - pos1 - 9).Trim
+            If fn.EndsWith("/") Then
+                fn = fn.Substring(0, fn.Length - 1).Trim
+            End If
             CurrLine = CurrLine.Substring(0, pos1) +
                 $"<a id=""fn{fn}"" href=""#fr{fn}"">[{fn}]</a>" +
                 CurrLine.Substring(pos2 + 1)
