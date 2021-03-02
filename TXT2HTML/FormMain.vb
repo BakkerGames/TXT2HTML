@@ -774,6 +774,15 @@ Public Class FormMain
     End Function
 
     Private Function FixInlineImages(ByVal CurrLine As String, ByVal TargetFolder As String) As String
+        If CurrLine.Contains("<image=") Then
+            Dim pos As Integer = CurrLine.IndexOf("<image=")
+            Dim pos2 As Integer = CurrLine.IndexOf(">", pos)
+            CurrLine = CurrLine.Substring(0, pos) +
+                       "&lt;" +
+                       CurrLine.Substring(pos + 1, pos2 - pos - 1) +
+                       "&gt;" +
+                       CurrLine.Substring(pos2 + 1)
+        End If
         If CurrLine.Contains("&lt;image=") Then
             CurrLine = CurrLine.Replace("&lt;image=", "<img src=""")
             CurrLine = CurrLine.Replace("&gt;", """></img>")
